@@ -1,53 +1,23 @@
-# Memcached
+# FLeeC+: A Fully Lock-Free and Fast Application-Level Cache
 
-Memcached is a high performance multithreaded event-based key/value cache
-store intended to be used in a distributed system.
+**FLeeC+** is a fully lock-free, application-level cache system designed as the high-performance successor to **Memcached**. While modern web services rely heavily on in-memory caches to reduce latency, traditional systems like Memcached often suffer from scalability bottlenecks due to their reliance on blocking synchronization (locks). FLeeC+ addresses these limitations by replacing all core components with non-blocking data structures and algorithms, enabling efficient parallel access to shared data even under high contention.
 
-See: https://memcached.org/about
+FLeeC+ serves as a robust, drop-in replacement for Memcached, offering equivalent or superior performance across all operating conditions without notable drawbacks.
 
-A fun story explaining usage: https://memcached.org/tutorial
+### Key Improvements Over Memcached
 
-If you're having trouble, try the wiki: https://memcached.org/wiki
+FLeeC+ introduces several architectural redesigns to maximize throughput and minimize latency:
 
-If you're trying to troubleshoot odd behavior or timeouts, see:
-https://memcached.org/timeouts
+*   **Cache-Friendly Indexing:** Instead of Memcached’s lock-striped hash table buckets implemented as linked lists, FLeeC+ features immutable, array-based buckets. This design optimizes CPU cache utilization and enables **completely synchronization-free read operations**, significantly accelerating lookups.
+*   **Merged Indexing and Eviction:** FLeeC+ eliminates the separate, lock-protected segmented LRU queues used in Memcached. Instead, it merges the lookup and eviction structures into a single hash table with an embedded CLOCK policy. It uses a relaxed sampling approach to update access metadata, which eliminates the synchronization overhead inherent in strict LRU maintenance.
+*   **Non-Blocking Hash Table Expansion:** While Memcached requires a "stop-the-world" phase to resize its hash table, FLeeC+ employs a non-blocking expansion mechanism that allows the system to continue servicing requests without interruption during resizing.
+*   **Advanced Adaptive Memory Reclamation:** To ensure safe memory reuse in a lock-free environment, FLeeC+ utilizes an adaptive system that dynamically switches between **Epoch-Based Reclamation (EBR)** and **Hazard Pointers (HP)** depending on memory pressure, ensuring high efficiency when memory is plentiful, and precise reclamation under high memory pressure.
 
-https://memcached.org/ is a good resource in general. Please use the mailing
-list to ask questions, github issues aren't seen by everyone!
 
-## Dependencies
+### Performance
 
-* libevent - https://www.monkey.org/~provos/libevent/ (libevent-dev)
-* libseccomp (optional, experimental, linux) - enables process restrictions for
-  better security. Tested only on x86-64 architectures.
-* openssl (optional) - enables TLS support. need relatively up to date
-  version. pkg-config is needed to find openssl dependencies (such as -lz).
+Extensive evaluation across synthetic and real-world workloads with Twitter production traces demonstrate that FLeeC+ can provide more than **11x higher throughput** over Memcached as contention increases, while still maintaining approximately **1.6x higher performance** in low contention scenarios.
 
-## Environment
+This figure demonstrates how each cache's throughput and latency vary with increasing levels of contention. The results show that FLeeC+ consistently outperforms Memcached, particularly under high contention scenarios, highlighting its superior scalability and efficiency.
 
-Be warned that the -k (mlockall) option to memcached might be
-dangerous when using a large cache. Just make sure the memcached machines
-don't swap.  memcached does non-blocking network I/O, but not disk.  (it
-should never go to disk, or you've lost the whole point of it)
-
-## Build status
-
-See https://build.memcached.org/ for multi-platform regression testing status.
-
-## Bug reports
-
-Feel free to use the issue tracker on github.
-
-**If you are reporting a security bug** please contact a maintainer privately.
-We follow responsible disclosure: we handle reports privately, prepare a
-patch, allow notifications to vendor lists. Then we push a fix release and your
-bug can be posted publicly with credit in our release notes and commit
-history.
-
-## Website
-
-* https://www.memcached.org
-
-## Contributing
-
-See https://github.com/memcached/memcached/wiki/DevelopmentRepos
+<img src="readme_comparison_img.svg"/>
